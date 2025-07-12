@@ -5,10 +5,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/danielrios/product-service-go/internal/application"
 	"github.com/danielrios/product-service-go/internal/core/models"
+	"github.com/go-chi/chi/v5"
 )
 
 // ProductHandler define a estrutura do nosso Adaptador de Entrada HTTP.
@@ -34,29 +34,25 @@ func writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) 
 	}
 }
 
-// Mapeamento de erros para códigos de status HTTP.
-var errorStatusMap = map[error]int{
-	models.ErrProductNotFound:      http.StatusNotFound,
-	models.ErrProductAlreadyExists: http.StatusConflict,
-	models.ErrInvalidProductID:     http.StatusBadRequest,
-}
-
 // writeErrorResponse é um helper para enviar respostas de erro padronizadas.
 func writeErrorResponse(w http.ResponseWriter, err error) {
 	statusCode := http.StatusInternalServerError
+	message := "internal server error"
 
-	for domainErr, status := range errorStatusMap {
-		if errors.Is(err, domainErr) {
-			statusCode = status
-			break
-		}
-	}
-
-	if statusCode == http.StatusInternalServerError {
+	if errors.Is(err, models.ErrProductNotFound) {
+		statusCode = http.StatusNotFound
+		message = err.Error()
+	} else if errors.Is(err, models.ErrProductAlreadyExists) {
+		statusCode = http.StatusConflict
+		message = err.Error()
+	} else if errors.Is(err, models.ErrInvalidProductID) {
+		statusCode = http.StatusBadRequest
+		message = err.Error()
+	} else {
 		log.Printf("Erro interno não mapeado no handler: %v", err)
 	}
 
-	writeJSONResponse(w, statusCode, map[string]string{"error": err.Error()})
+	writeJSONResponse(w, statusCode, map[string]string{"error": message})
 }
 
 // CreateProductHandler lida com a requisição POST /products.
@@ -74,17 +70,11 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	writeJSONResponse(w, http.StatusCreated, createdProduct)
-	log.Printf("Produto criado: %s", createdProduct.ID)
 }
 
 // GetProductByIDHandler lida com a requisição GET /products/{id}.
 func (h *ProductHandler) GetProductByIDHandler(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/products/")
-	if id == "" || strings.Contains(id, "/") {
-		writeErrorResponse(w, errors.New("invalid product ID format"))
-		return
-	}
-
+	id := chi.URLParam(r, "id")
 	product, err := h.service.GetProductByID(id)
 	if err != nil {
 		writeErrorResponse(w, err)
@@ -92,7 +82,6 @@ func (h *ProductHandler) GetProductByIDHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSONResponse(w, http.StatusOK, product)
-	log.Printf("Produto consultado: %s", product.ID)
 }
 
 // GetAllProductsHandler lida com a requisição GET /products (listagem)
@@ -104,17 +93,11 @@ func (h *ProductHandler) GetAllProductsHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	writeJSONResponse(w, http.StatusOK, products)
-	log.Println("Listou todos os produtos")
 }
 
 // UpdateProductHandler lida com a requisição PUT /products/{id}
 func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/products/")
-	if id == "" || strings.Contains(id, "/") {
-		writeErrorResponse(w, errors.New("invalid product ID format"))
-		return
-	}
-
+	id := chi.URLParam(r, "id")
 	var product models.Product
 	if err := json.NewDecoder(r.Body).Decode(&product); err != nil {
 		writeErrorResponse(w, errors.New("invalid request body"))
@@ -128,17 +111,11 @@ func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	writeJSONResponse(w, http.StatusOK, updatedProduct)
-	log.Printf("Produto atualizado: %s", updatedProduct.ID)
 }
 
 // DeleteProductHandler lida com a requisição DELETE /products/{id}
 func (h *ProductHandler) DeleteProductHandler(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/products/")
-	if id == "" || strings.Contains(id, "/") {
-		writeErrorResponse(w, errors.New("invalid product ID format"))
-		return
-	}
-
+	id := chi.URLParam(r, "id")
 	err := h.service.DeleteProduct(id)
 	if err != nil {
 		writeErrorResponse(w, err)
@@ -146,5 +123,4 @@ func (h *ProductHandler) DeleteProductHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-	log.Printf("Produto deletado: %s", id)
 }
