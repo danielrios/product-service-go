@@ -34,25 +34,29 @@ func writeJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) 
 	}
 }
 
+// Mapeamento de erros para códigos de status HTTP.
+var errorStatusMap = map[error]int{
+	models.ErrProductNotFound:      http.StatusNotFound,
+	models.ErrProductAlreadyExists: http.StatusConflict,
+	models.ErrInvalidProductID:     http.StatusBadRequest,
+}
+
 // writeErrorResponse é um helper para enviar respostas de erro padronizadas.
 func writeErrorResponse(w http.ResponseWriter, err error) {
 	statusCode := http.StatusInternalServerError
-	message := "internal server error"
 
-	if errors.Is(err, models.ErrProductNotFound) {
-		statusCode = http.StatusNotFound
-		message = err.Error()
-	} else if errors.Is(err, models.ErrProductAlreadyExists) {
-		statusCode = http.StatusConflict
-		message = err.Error()
-	} else if errors.Is(err, models.ErrInvalidProductID) {
-		statusCode = http.StatusBadRequest
-		message = err.Error()
-	} else {
+	for domainErr, status := range errorStatusMap {
+		if errors.Is(err, domainErr) {
+			statusCode = status
+			break
+		}
+	}
+
+	if statusCode == http.StatusInternalServerError {
 		log.Printf("Erro interno não mapeado no handler: %v", err)
 	}
 
-	writeJSONResponse(w, statusCode, map[string]string{"error": message})
+	writeJSONResponse(w, statusCode, map[string]string{"error": err.Error()})
 }
 
 // CreateProductHandler lida com a requisição POST /products.

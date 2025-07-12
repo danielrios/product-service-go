@@ -71,29 +71,29 @@ func (r *PostgresProductRepository) GetByID(id string) (*models.Product, error) 
 }
 
 // GetAll busca todos os produtos no banco de dados.
-func (r *PostgresProductRepository) GetAll() ([]*models.Product, error) {
+func (r *PostgresProductRepository) GetAll() (products []*models.Product, err error) {
 	query := "SELECT id, name, price, created_at FROM products"
 	rows, err := r.db.QueryContext(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		// Garante que o erro de rows.Close() seja propagado, juntando-o a qualquer erro anterior.
+		err = errors.Join(err, rows.Close())
+	}()
 
-	var products []*models.Product
+	products = []*models.Product{} // Evita retornar um slice nulo em caso de sucesso sem resultados.
 	for rows.Next() {
 		var product models.Product
-		if err := rows.Scan(&product.ID, &product.Name, &product.Price, &product.CreatedAt); err != nil {
-			return nil, err
+		if scanErr := rows.Scan(&product.ID, &product.Name, &product.Price, &product.CreatedAt); scanErr != nil {
+			return nil, scanErr
 		}
 		products = append(products, &product)
 	}
 
 	// Verifica se houve algum erro durante a iteração das linhas.
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return products, nil
+	err = rows.Err()
+	return products, err
 }
 
 // Update atualiza um produto existente no banco de dados.
