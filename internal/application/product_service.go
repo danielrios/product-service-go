@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+
 	"github.com/danielrios/product-service-go/internal/core/models"
 	"github.com/danielrios/product-service-go/internal/core/ports"
 )
@@ -19,17 +20,17 @@ func NewProductService(repo ports.ProductRepository) *ProductService {
 }
 
 // CreateProduct lida com a lógica de negócio para criar um novo produto.
-func (s *ProductService) CreateProduct(product *models.Product) error {
+func (s *ProductService) CreateProduct(product *models.Product) (*models.Product, error) {
 	validatedProduct, err := models.NewProduct(product.ID, product.Name, product.Price)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = s.repo.Add(validatedProduct)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return validatedProduct, nil
 }
 
 // GetProductByID lida com a lógica de negócio para buscar um produto por ID.
@@ -51,26 +52,23 @@ func (s *ProductService) GetAllProducts() ([]*models.Product, error) {
 }
 
 // UpdateProduct lida com a lógica de negócio para atualizar um produto.
-func (s *ProductService) UpdateProduct(id string, product *models.Product) error {
+func (s *ProductService) UpdateProduct(id string, product *models.Product) (*models.Product, error) {
 	if id != product.ID {
-		return errors.New("product ID in path does not match ID in body")
+		return nil, errors.New("product ID in path does not match ID in body")
 	}
 
-	validatedProduct, err := models.NewProduct(product.ID, product.Name, product.Price)
+	// Apenas valida os dados, sem criar uma nova instância que zeraria o CreatedAt
+	_, err := models.NewProduct(product.ID, product.Name, product.Price)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = s.repo.GetByID(id)
+	err = s.repo.Update(product)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	err = s.repo.Update(validatedProduct)
-	if err != nil {
-		return err
-	}
-	return nil
+	// Após a atualização, busca e retorna a entidade completa do banco de dados.
+	return s.repo.GetByID(id)
 }
 
 // DeleteProduct lida com a lógica de negócio para excluir um produto.

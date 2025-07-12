@@ -63,14 +63,14 @@ func (h *ProductHandler) CreateProductHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err := h.service.CreateProduct(&product)
+	createdProduct, err := h.service.CreateProduct(&product)
 	if err != nil {
 		writeErrorResponse(w, err)
 		return
 	}
 
-	writeJSONResponse(w, http.StatusCreated, product)
-	log.Printf("Produto criado: %s", product.ID)
+	writeJSONResponse(w, http.StatusCreated, createdProduct)
+	log.Printf("Produto criado: %s", createdProduct.ID)
 }
 
 // GetProductByIDHandler lida com a requisição GET /products/{id}.
@@ -117,14 +117,14 @@ func (h *ProductHandler) UpdateProductHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	err := h.service.UpdateProduct(id, &product)
+	updatedProduct, err := h.service.UpdateProduct(id, &product)
 	if err != nil {
 		writeErrorResponse(w, err)
 		return
 	}
 
-	writeJSONResponse(w, http.StatusOK, product)
-	log.Printf("Produto atualizado: %s", product.ID)
+	writeJSONResponse(w, http.StatusOK, updatedProduct)
+	log.Printf("Produto atualizado: %s", updatedProduct.ID)
 }
 
 // DeleteProductHandler lida com a requisição DELETE /products/{id}

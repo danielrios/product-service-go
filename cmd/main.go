@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"errors"
-	http2 "github.com/danielrios/product-service-go/internal/adapters/driver/http"
 	"log"
 	"net/http"
 	"os"
@@ -11,15 +10,36 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/danielrios/product-service-go/internal/adapters/driven/memdb"
+	"github.com/joho/godotenv"
+
+	http2 "github.com/danielrios/product-service-go/internal/adapters/driver/http"
+
+	"github.com/danielrios/product-service-go/internal/adapters/driven/postgresdb"
 	"github.com/danielrios/product-service-go/internal/application"
 )
 
 func main() {
-	log.Println("Iniciando o microsserviço de produtos com Arquitetura Hexagonal...")
-	// --- 1. Inicializa o Driven Adapter (Repositório de Produtos) ---
-	productRepo := memdb.NewInMemoryProductRepository()
+	// Carrega as variáveis de ambiente do arquivo .env.
+	// É seguro ignorar o erro aqui, pois em ambientes de produção (como Docker ou Kubernetes),
+	// as variáveis podem ser injetadas diretamente, e o arquivo .env pode não existir.
+	if err := godotenv.Load(); err != nil {
+		log.Println("Aviso: Não foi possível carregar o arquivo .env. Usando variáveis de ambiente do sistema.")
+	}
 
+	log.Println("Iniciando o microsserviço de produtos com Arquitetura Hexagonal...")
+
+	// --- Obter a string de conexão do banco de dados (idealmente de variáveis de ambiente) ---
+	// Exemplo: "postgres://user:password@localhost:5432/database_name?sslmode=disable"
+	dbConnectionString := os.Getenv("DB_CONNECTION_STRING")
+	if dbConnectionString == "" {
+		log.Fatal("A variável de ambiente DB_CONNECTION_STRING não está definida.")
+	}
+
+	// --- 1. Inicializa o Driven Adapter (Repositório de Produtos) ---
+	productRepo, err := postgresdb.NewPostgresProductRepository(dbConnectionString)
+	if err != nil {
+		log.Fatalf("Não foi possível conectar ao banco de dados: %v", err)
+	}
 	// --- 2. Inicializa o Application Service (Core) ---
 	productService := application.NewProductService(productRepo)
 
